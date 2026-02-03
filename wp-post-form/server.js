@@ -65,47 +65,190 @@ app.get('/', requireAccessToken, (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>New Post</title>
   <style>
-    :root { --bg:#fff; --border:#e5e7eb; --muted:#6b7280; --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    body { font-family: -apple-system, system-ui, sans-serif; margin: 18px; }
-    h1 { margin: 0 0 10px 0; font-size: 20px; }
-    label { display:block; font-weight:600; margin-top: 12px; }
-    input[type=text], select { width: 100%; padding: 10px; font-size: 16px; }
-    .row { display:flex; gap: 12px; flex-wrap: wrap; }
-    .row > div { flex: 1; min-width: 220px; }
-    .hint { color: var(--muted); font-size: 13px; margin-top:6px; }
-    .toolbar { display:flex; gap:10px; align-items:center; justify-content: space-between; margin: 10px 0 12px; }
-    .toolbar .left { display:flex; gap:10px; align-items:center; }
-    .badge { font-size:12px; padding: 3px 8px; border:1px solid var(--border); border-radius: 999px; color:#111; background:#fafafa; }
+    :root {
+      --bg: #0b0f19;
+      --surface: rgba(255,255,255,0.06);
+      --surface-2: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.10);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.65);
+      --shadow: 0 16px 40px rgba(0,0,0,0.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --accent: #7c3aed;
+      --accent2: #22c55e;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f7f7fb;
+      --surface: rgba(255,255,255,0.85);
+      --surface-2: rgba(255,255,255,0.95);
+      --border: rgba(17,24,39,0.12);
+      --text: rgba(17,24,39,0.92);
+      --muted: rgba(17,24,39,0.60);
+      --shadow: 0 16px 40px rgba(17,24,39,0.12);
+      --accent: #6d28d9;
+      --accent2: #16a34a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.25), transparent 60%),
+        radial-gradient(1200px 600px at 90% 30%, rgba(34,197,94,0.18), transparent 55%),
+        var(--bg);
+    }
+
+    .page { max-width: 1160px; margin: 0 auto; padding: 22px; }
+
+    .topbar {
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; font-weight: 650; }
+    .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+    label { display:block; font-weight: 650; margin-top: 14px; font-size: 13px; color: var(--muted); }
+
+    input[type=text], select {
+      width: 100%;
+      padding: 11px 12px;
+      font-size: 15px;
+      color: var(--text);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    input[type=text]:focus, select:focus { border-color: rgba(124,58,237,0.55); box-shadow: 0 0 0 4px rgba(124,58,237,0.18); }
+
+    .row { display:flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+    .row > div { flex: 1; min-width: 240px; }
+
+    .hint { color: var(--muted); font-size: 12.5px; margin-top:6px; }
+
+    .toolbar {
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content: space-between;
+      margin: 14px 0 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    }
+    .toolbar .left { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+    .toolbar .right { display:flex; gap:10px; align-items:center; }
+
+    .badge {
+      font-size: 12px;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255,255,255,0.04);
+    }
     .badge.muted { color: var(--muted); }
-    button { padding: 10px 14px; font-size: 16px; cursor: pointer; }
+
+    button {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 650;
+      cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: rgba(255,255,255,0.06);
+    }
+    button:hover { background: rgba(255,255,255,0.10); }
+    button:active { transform: translateY(1px); }
+
+    button.primary {
+      border-color: rgba(124,58,237,0.55);
+      background: linear-gradient(135deg, rgba(124,58,237,0.85), rgba(34,197,94,0.55));
+      box-shadow: 0 10px 30px rgba(124,58,237,0.22);
+    }
+    button.primary:hover { filter: brightness(1.05); }
 
     .editor-wrap { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .panel { border:1px solid var(--border); border-radius: 10px; overflow:hidden; background: var(--bg); min-height: 440px; }
-    .panel-header { display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; border-bottom:1px solid var(--border); background:#fafafa; }
-    .panel-header strong { font-size: 13px; }
-    .panel-body { padding: 0; }
-    #editor { height: 520px; }
-    #preview { padding: 14px 16px; height: 520px; overflow:auto; }
 
-    #dropzone { border:1px dashed var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 12px; color: var(--muted); }
-    #dropzone.dragover { border-color:#111827; color:#111827; background:#f9fafb; }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      min-height: 440px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+    }
+
+    .panel-header {
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .panel-header strong { font-size: 12.5px; color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase; }
+
+    .panel-body { padding: 0; }
+
+    #editor { height: 560px; }
+    #preview { padding: 14px 16px; height: 560px; overflow:auto; }
+
+    #dropzone {
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-top: 14px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+    }
+    #dropzone.dragover { border-color: rgba(124,58,237,0.7); color: var(--text); background: rgba(124,58,237,0.10); }
+    input[type=file] { color: var(--muted); }
 
     @media (max-width: 980px) {
       .editor-wrap { grid-template-columns: 1fr; }
-      #editor, #preview { height: 420px; }
+      #editor, #preview { height: 440px; }
+      .page { padding: 16px; }
     }
 
     /* Preview typography */
     #preview h1, #preview h2, #preview h3 { margin-top: 1em; }
-    #preview pre { background:#0b1020; color:#e5e7eb; padding: 12px; border-radius: 10px; overflow:auto; }
+    #preview pre { background:#0b1020; color:#e5e7eb; padding: 12px; border-radius: 12px; overflow:auto; border: 1px solid rgba(255,255,255,0.08); }
+    :root[data-theme="light"] #preview pre { background:#111827; }
     #preview code { font-family: var(--mono); }
-    #preview a { color: #111827; }
+    #preview a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
   </style>
 </head>
 <body>
-  <h1>New WordPress Post</h1>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>New WordPress Post</h1>
+        <div class="sub">Minimal, fast, and now a bit glossy.</div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button type="button" id="themeBtn" title="Toggle theme">Theme</button>
+      </div>
+    </div>
 
-  <form id="postForm" method="post" action="/create">
+    <form id="postForm" method="post" action="/create">
     <label>Title</label>
     <input id="title" type="text" name="title" required />
 
@@ -135,7 +278,7 @@ app.get('/', requireAccessToken, (req, res) => {
       </div>
       <div class="right">
         <button type="button" id="clearBtn">Clear</button>
-        <button type="submit" id="submitBtn">Create</button>
+        <button class="primary" type="submit" id="submitBtn">Create</button>
       </div>
     </div>
 
@@ -156,6 +299,7 @@ app.get('/', requireAccessToken, (req, res) => {
     <div id="dropzone">Drag & drop an image here to upload to WordPress Media and insert into the post (or click: <input type="file" id="fileInput" accept="image/*" />)</div>
     <div class="hint">Images upload to WordPress and are inserted as Markdown: <code>![](url)</code></div>
   </form>
+  </div>
 
   <script type="module">
     import { EditorState } from 'https://esm.sh/@codemirror/state@6.4.1';
@@ -180,7 +324,25 @@ app.get('/', requireAccessToken, (req, res) => {
     };
 
     const STORAGE_KEY = 'wp-post-form:draft:v1';
+    const THEME_KEY = 'wp-post-form:theme:v1';
     let saveTimer = null;
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.dataset.theme = 'light';
+      } else {
+        delete document.documentElement.dataset.theme;
+      }
+    }
+
+    const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    applyTheme(savedTheme);
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const cur = localStorage.getItem(THEME_KEY) || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
 
     function setSaveStatus(text) {
       els.saveStatus.textContent = text;
