@@ -52,5 +52,6 @@ Open:
 - Technology: 15
 - Supply Chain: 14
 - Thoughts: 16
+- Projects: 17
 
 Update in `config.js` if needed.
