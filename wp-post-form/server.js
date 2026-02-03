@@ -284,8 +284,10 @@ app.get('/', requireAccessToken, (req, res) => {
 
     <div class="editor-wrap">
       <div class="panel">
-        <div class="panel-header"><strong>Editor</strong><span class="hint">CodeMirror</span></div>
-        <div class="panel-body"><div id="editor"></div></div>
+        <div class="panel-header"><strong>Editor</strong><span class="hint">Plain</span></div>
+        <div class="panel-body">
+          <textarea id="bodyArea" name="body" placeholder="Write Markdown here…" style="width:100%;height:560px;resize:none;padding:14px 16px;border:0;outline:none;background:transparent;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;"></textarea>
+        </div>
       </div>
 
       <div class="panel">
@@ -294,27 +296,19 @@ app.get('/', requireAccessToken, (req, res) => {
       </div>
     </div>
 
-    <input type="hidden" name="body" id="body" />
-
     <div id="dropzone">Drag & drop an image here to upload to WordPress Media and insert into the post (or click: <input type="file" id="fileInput" accept="image/*" />)</div>
     <div class="hint">Images upload to WordPress and are inserted as Markdown: <code>![](url)</code></div>
   </form>
   </div>
 
-  <script type="module">
-    import { EditorState } from 'https://esm.sh/@codemirror/state@6.4.1';
-    import { EditorView, keymap, lineNumbers } from 'https://esm.sh/@codemirror/view@6.26.3';
-    import { defaultKeymap, history, historyKeymap } from 'https://esm.sh/@codemirror/commands@6.4.0';
-    import { markdown } from 'https://esm.sh/@codemirror/lang-markdown@6.2.4';
-    import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark@6.1.2';
-    import { marked } from 'https://esm.sh/marked@12.0.2';
-
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
     const els = {
       title: document.getElementById('title'),
       category: document.getElementById('category'),
       status: document.getElementById('status'),
       tags: document.getElementById('tags'),
-      bodyHidden: document.getElementById('body'),
+      bodyArea: document.getElementById('bodyArea'),
       preview: document.getElementById('preview'),
       saveStatus: document.getElementById('saveStatus'),
       clearBtn: document.getElementById('clearBtn'),
@@ -349,10 +343,15 @@ app.get('/', requireAccessToken, (req, res) => {
     }
 
     function renderPreview(md) {
-      els.preview.innerHTML = marked.parse(md || '');
+      const m = window.marked;
+      if (!m || typeof m.parse !== 'function') {
+        els.preview.textContent = md || '';
+        return;
+      }
+      els.preview.innerHTML = m.parse(md || '');
     }
 
-    function scheduleSave(getBody) {
+    function scheduleSave() {
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
         const payload = {
@@ -360,13 +359,13 @@ app.get('/', requireAccessToken, (req, res) => {
           category: els.category.value,
           status: els.status.value,
           tags: els.tags.value,
-          body: getBody(),
+          body: els.bodyArea.value,
           savedAt: Date.now()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         const d = new Date(payload.savedAt);
         setSaveStatus('Saved ' + d.toLocaleTimeString());
-      }, 400);
+      }, 300);
       setSaveStatus('Saving…');
     }
 
@@ -376,10 +375,12 @@ app.get('/', requireAccessToken, (req, res) => {
       try { return JSON.parse(raw); } catch { return null; }
     }
 
-    function insertAtCursor(view, text) {
-      const { from, to } = view.state.selection.main;
-      view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } });
-      view.focus();
+    function insertAtCursor(text) {
+      const el = els.bodyArea;
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      el.setRangeText(text, start, end, 'end');
+      el.focus();
     }
 
     const initial = loadDraft();
@@ -389,38 +390,24 @@ app.get('/', requireAccessToken, (req, res) => {
       els.category.value = initial.category || els.category.value;
       els.status.value = initial.status || els.status.value;
       els.tags.value = initial.tags || '';
+      els.bodyArea.value = initial.body || '';
       setSaveStatus('Restored draft');
     }
 
-    const startDoc = (initial && initial.body) ? initial.body : '';
+    renderPreview(els.bodyArea.value);
 
-    const state = EditorState.create({
-      doc: startDoc,
-      extensions: [
-        lineNumbers(),
-        history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
-        markdown(),
-        oneDark,
-        EditorView.updateListener.of((v) => {
-          if (v.docChanged) {
-            const md = v.state.doc.toString();
-            renderPreview(md);
-            scheduleSave(() => md);
-          }
-        })
-      ]
+    // Live preview + autosave
+    els.bodyArea.addEventListener('input', () => {
+      renderPreview(els.bodyArea.value);
+      scheduleSave();
     });
-
-    const view = new EditorView({ state, parent: document.getElementById('editor') });
-    renderPreview(startDoc);
 
     // Save on other field changes too
     ['input','change'].forEach(evt => {
-      els.title.addEventListener(evt, () => scheduleSave(() => view.state.doc.toString()));
-      els.category.addEventListener(evt, () => scheduleSave(() => view.state.doc.toString()));
-      els.status.addEventListener(evt, () => scheduleSave(() => view.state.doc.toString()));
-      els.tags.addEventListener(evt, () => scheduleSave(() => view.state.doc.toString()));
+      els.title.addEventListener(evt, () => scheduleSave());
+      els.category.addEventListener(evt, () => scheduleSave());
+      els.status.addEventListener(evt, () => scheduleSave());
+      els.tags.addEventListener(evt, () => scheduleSave());
     });
 
     els.clearBtn.addEventListener('click', () => {
@@ -429,14 +416,9 @@ app.get('/', requireAccessToken, (req, res) => {
       els.title.value = '';
       els.tags.value = '';
       els.status.value = 'draft';
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+      els.bodyArea.value = '';
       renderPreview('');
       setSaveStatus('Cleared');
-    });
-
-    // On submit: sync hidden body field
-    els.form.addEventListener('submit', () => {
-      els.bodyHidden.value = view.state.doc.toString();
     });
 
     async function uploadFile(file) {
@@ -453,7 +435,9 @@ app.get('/', requireAccessToken, (req, res) => {
       setSaveStatus('Uploading image…');
       try {
         const { url } = await uploadFile(file);
-        insertAtCursor(view, "\n\n![](" + url + ")\n\n");
+        insertAtCursor("\n\n![](" + url + ")\n\n");
+        renderPreview(els.bodyArea.value);
+        scheduleSave();
         setSaveStatus('Image inserted');
       } catch (e) {
         alert(String(e));
@@ -475,8 +459,8 @@ app.get('/', requireAccessToken, (req, res) => {
     });
 
     // Initial autosave marker if we loaded something
-    if (startDoc || (initial && (initial.title || initial.tags))) {
-      scheduleSave(() => view.state.doc.toString());
+    if (els.bodyArea.value || (initial && (initial.title || initial.tags))) {
+      scheduleSave();
     }
 
   </script>
