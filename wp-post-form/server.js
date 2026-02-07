@@ -369,7 +369,7 @@ app.get('/', requireAccessToken, (req, res) => {
         <div class="panel-header"><strong>Editor</strong><span id="modeHint" class="hint">Rich</span></div>
         <div class="panel-body">
           <div id="rtEditor" class="rt-editor" style="display:none;"></div>
-          <textarea id="bodyArea" name="body" placeholder="Write Markdown here…" style="display:none;width:100%;height:560px;resize:none;padding:14px 16px;border:0;outline:none;background:transparent;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;"></textarea>
+          <textarea id="bodyArea" name="body" placeholder="Write Markdown here…" style="width:100%;height:560px;resize:none;padding:14px 16px;border:0;outline:none;background:transparent;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;"></textarea>
         </div>
       </div>
 
@@ -448,8 +448,9 @@ app.get('/', requireAccessToken, (req, res) => {
       return m.parse(md || '');
     }
 
-    let mode = 'rich'; // 'rich' | 'markdown'
+    let mode = 'markdown'; // 'rich' | 'markdown'
     let editor = null;
+    let richAvailable = false;
 
     function getRichHtml() {
       try { return editor ? editor.getHTML() : ''; } catch { return ''; }
@@ -605,21 +606,27 @@ app.get('/', requireAccessToken, (req, res) => {
       return td.turndown(html || '');
     }
 
-    // Init TipTap
-    editor = new Editor({
-      element: els.rtEditorEl,
-      extensions: [
-        StarterKit,
-        Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
-        Image.configure({ inline: false }),
-      ],
-      content: '<p></p>',
-      onUpdate: () => {
-        if (mode !== 'rich') return;
-        renderPreviewFromHtml(getRichHtml());
-        scheduleSave();
-      }
-    });
+    // Init TipTap (rich text). If it fails (offline/CDN blocked), fall back to Markdown.
+    try {
+      editor = new Editor({
+        element: els.rtEditorEl,
+        extensions: [
+          StarterKit,
+          Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+          Image.configure({ inline: false }),
+        ],
+        content: '<p></p>',
+        onUpdate: () => {
+          if (mode !== 'rich') return;
+          renderPreviewFromHtml(getRichHtml());
+          scheduleSave();
+        }
+      });
+      richAvailable = true;
+    } catch (e) {
+      richAvailable = false;
+      console.error('TipTap failed to load; falling back to Markdown:', e);
+    }
 
     function runRtCmd(cmd) {
       const chain = editor.chain().focus();
@@ -644,9 +651,11 @@ app.get('/', requireAccessToken, (req, res) => {
       scheduleSave();
     }
 
-    document.querySelectorAll('[data-rtcmd]').forEach((btn) => {
-      btn.addEventListener('click', () => runRtCmd(btn.dataset.rtcmd));
-    });
+    if (richAvailable) {
+      document.querySelectorAll('[data-rtcmd]').forEach((btn) => {
+        btn.addEventListener('click', () => runRtCmd(btn.dataset.rtcmd));
+      });
+    }
 
     // Load draft
     const initial = loadDraft();
@@ -659,18 +668,30 @@ app.get('/', requireAccessToken, (req, res) => {
       if (initial.markdown && typeof initial.markdown === 'string') {
         els.bodyArea.value = initial.markdown;
       }
-      if (initial.html && typeof initial.html === 'string') {
-        editor.commands.setContent(initial.html, false);
-      } else if (els.bodyArea.value) {
-        editor.commands.setContent(mdToHtml(els.bodyArea.value), false);
+
+      // Only touch rich editor content if TipTap loaded.
+      if (richAvailable) {
+        if (initial.html && typeof initial.html === 'string') {
+          editor.commands.setContent(initial.html, false);
+        } else if (els.bodyArea.value) {
+          editor.commands.setContent(mdToHtml(els.bodyArea.value), false);
+        }
       }
 
-      mode = initial.mode === 'markdown' ? 'markdown' : 'rich';
+      const wanted = initial.mode === 'rich' ? 'rich' : 'markdown';
+      mode = (wanted === 'rich' && richAvailable) ? 'rich' : 'markdown';
       setSaveStatus('Restored draft');
+    } else {
+      // No draft: if rich is available, default to rich.
+      mode = richAvailable ? 'rich' : 'markdown';
     }
 
     // Mode buttons
     els.modeRichBtn.addEventListener('click', () => {
+      if (!richAvailable) {
+        alert('Rich editor is unavailable (TipTap failed to load). Check your internet connection and refresh.');
+        return;
+      }
       // If coming from markdown, convert to HTML and load into rich editor.
       if (mode === 'markdown') {
         editor.commands.setContent(mdToHtml(els.bodyArea.value), false);
@@ -679,14 +700,13 @@ app.get('/', requireAccessToken, (req, res) => {
     });
     els.modeMdBtn.addEventListener('click', () => {
       // If coming from rich, convert to markdown for the textarea.
-      if (mode === 'rich') {
+      if (mode === 'rich' && richAvailable) {
         els.bodyArea.value = mdFromHtml(getRichHtml());
       }
       setMode('markdown');
     });
 
-    // Default mode if nothing saved
-    els.modeRichBtn.classList.add('active');
+    // Default mode
     setMode(mode);
 
     // Markdown formatting toolbar
@@ -733,7 +753,7 @@ app.get('/', requireAccessToken, (req, res) => {
       els.tags.value = '';
       els.status.value = 'draft';
       els.bodyArea.value = '';
-      editor.commands.setContent('<p></p>', false);
+      if (richAvailable) editor.commands.setContent('<p></p>', false);
       renderPreviewFromHtml('');
       setSaveStatus('Cleared');
     });
@@ -761,7 +781,7 @@ app.get('/', requireAccessToken, (req, res) => {
       setSaveStatus('Uploading image…');
       try {
         const { url } = await uploadFile(file);
-        if (mode === 'rich') {
+        if (mode === 'rich' && richAvailable) {
           editor.chain().focus().setImage({ src: url }).run();
           renderPreviewFromHtml(getRichHtml());
         } else {
