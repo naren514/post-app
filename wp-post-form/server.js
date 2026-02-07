@@ -154,6 +154,41 @@ app.get('/', requireAccessToken, (req, res) => {
     .toolbar .left { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
     .toolbar .right { display:flex; gap:10px; align-items:center; }
 
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.04);
+    }
+    .segbtn {
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 650;
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+    }
+    .segbtn:last-child { border-right: 0; }
+    .segbtn.active { color: var(--text); background: rgba(255,255,255,0.10); }
+
+    .rt-editor {
+      height: 560px;
+      padding: 14px 16px;
+      outline: none;
+      overflow: auto;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .rt-editor .ProseMirror { outline: none; }
+    .rt-editor .ProseMirror p { margin: 0 0 0.9em; }
+    .rt-editor .ProseMirror h2 { margin: 1.1em 0 0.6em; }
+    .rt-editor .ProseMirror h3 { margin: 1.0em 0 0.6em; }
+    .rt-editor .ProseMirror ul, .rt-editor .ProseMirror ol { padding-left: 1.2em; }
+    .rt-editor .ProseMirror img { max-width: 100%; border-radius: 12px; border: 1px solid var(--border); }
+
     .badge {
       font-size: 12px;
       padding: 5px 10px;
@@ -176,6 +211,21 @@ app.get('/', requireAccessToken, (req, res) => {
     }
     button:hover { background: rgba(255,255,255,0.10); }
     button:active { transform: translateY(1px); }
+
+    .toolbtn {
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 650;
+      border-radius: 10px;
+      line-height: 1;
+      user-select: none;
+    }
+    .toolbtn kbd {
+      font-family: var(--mono);
+      font-size: 11px;
+      opacity: 0.7;
+      margin-left: 6px;
+    }
 
     button.primary {
       border-color: rgba(124,58,237,0.55);
@@ -273,7 +323,37 @@ app.get('/', requireAccessToken, (req, res) => {
 
     <div class="toolbar">
       <div class="left">
-        <span class="badge">Markdown editor</span>
+        <span class="badge">Editor</span>
+
+        <div class="segmented" role="tablist" aria-label="Editor mode">
+          <button type="button" class="segbtn" id="modeRichBtn" role="tab" aria-selected="true">Rich text</button>
+          <button type="button" class="segbtn" id="modeMdBtn" role="tab" aria-selected="false">Markdown</button>
+        </div>
+
+        <span id="rtTools" style="display:none; gap:8px; align-items:center;">
+          <button type="button" class="toolbtn" data-rtcmd="bold" title="Bold"><strong>B</strong></button>
+          <button type="button" class="toolbtn" data-rtcmd="italic" title="Italic"><em>I</em></button>
+          <button type="button" class="toolbtn" data-rtcmd="h2" title="Heading">H2</button>
+          <button type="button" class="toolbtn" data-rtcmd="h3" title="Heading">H3</button>
+          <button type="button" class="toolbtn" data-rtcmd="ul" title="Bulleted list">• List</button>
+          <button type="button" class="toolbtn" data-rtcmd="ol" title="Numbered list">1. List</button>
+          <button type="button" class="toolbtn" data-rtcmd="link" title="Link">Link</button>
+        </span>
+
+        <span id="mdTools" style="display:none; gap:8px; align-items:center;">
+          <button type="button" class="toolbtn" data-cmd="bold" title="Bold (Cmd/Ctrl+B)"><strong>B</strong><kbd>⌘B</kbd></button>
+          <button type="button" class="toolbtn" data-cmd="italic" title="Italic (Cmd/Ctrl+I)"><em>I</em><kbd>⌘I</kbd></button>
+          <button type="button" class="toolbtn" data-cmd="strike" title="Strikethrough">S</button>
+          <button type="button" class="toolbtn" data-cmd="h2" title="Heading">H2</button>
+          <button type="button" class="toolbtn" data-cmd="h3" title="Heading">H3</button>
+          <button type="button" class="toolbtn" data-cmd="quote" title="Blockquote">❝</button>
+          <button type="button" class="toolbtn" data-cmd="ul" title="Bulleted list">• List</button>
+          <button type="button" class="toolbtn" data-cmd="ol" title="Numbered list">1. List</button>
+          <button type="button" class="toolbtn" data-cmd="code" title="Inline code">&#96;code&#96;</button>
+          <button type="button" class="toolbtn" data-cmd="codeblock" title="Code block">&#96;&#96;&#96;</button>
+          <button type="button" class="toolbtn" data-cmd="link" title="Link (Cmd/Ctrl+K)">Link<kbd>⌘K</kbd></button>
+        </span>
+
         <span id="saveStatus" class="badge muted">Not saved</span>
       </div>
       <div class="right">
@@ -282,11 +362,14 @@ app.get('/', requireAccessToken, (req, res) => {
       </div>
     </div>
 
+    <input type="hidden" id="contentHtml" name="contentHtml" value="" />
+
     <div class="editor-wrap">
       <div class="panel">
-        <div class="panel-header"><strong>Editor</strong><span class="hint">Plain</span></div>
+        <div class="panel-header"><strong>Editor</strong><span id="modeHint" class="hint">Rich</span></div>
         <div class="panel-body">
-          <textarea id="bodyArea" name="body" placeholder="Write Markdown here…" style="width:100%;height:560px;resize:none;padding:14px 16px;border:0;outline:none;background:transparent;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;"></textarea>
+          <div id="rtEditor" class="rt-editor" style="display:none;"></div>
+          <textarea id="bodyArea" name="body" placeholder="Write Markdown here…" style="display:none;width:100%;height:560px;resize:none;padding:14px 16px;border:0;outline:none;background:transparent;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.5;"></textarea>
         </div>
       </div>
 
@@ -297,27 +380,40 @@ app.get('/', requireAccessToken, (req, res) => {
     </div>
 
     <div id="dropzone">Drag & drop an image here to upload to WordPress Media and insert into the post (or click: <input type="file" id="fileInput" accept="image/*" />)</div>
-    <div class="hint">Images upload to WordPress and are inserted as Markdown: <code>![](url)</code></div>
+    <div class="hint">Images upload to WordPress and are inserted into the active editor (Rich text inserts an <code>&lt;img src="..." /&gt;</code>; Markdown inserts <code>![](url)</code>).</div>
   </form>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script>
+  <script src="https://cdn.jsdelivr.net/npm/turndown/dist/turndown.js"></script>
+  <script type="module">
+    import { Editor } from 'https://esm.sh/@tiptap/core@2.11.5';
+    import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.11.5';
+    import Link from 'https://esm.sh/@tiptap/extension-link@2.11.5';
+    import Image from 'https://esm.sh/@tiptap/extension-image@2.11.5';
+
     const els = {
       title: document.getElementById('title'),
       category: document.getElementById('category'),
       status: document.getElementById('status'),
       tags: document.getElementById('tags'),
       bodyArea: document.getElementById('bodyArea'),
+      rtEditorEl: document.getElementById('rtEditor'),
       preview: document.getElementById('preview'),
       saveStatus: document.getElementById('saveStatus'),
       clearBtn: document.getElementById('clearBtn'),
       fileInput: document.getElementById('fileInput'),
       dropzone: document.getElementById('dropzone'),
       form: document.getElementById('postForm'),
+      contentHtml: document.getElementById('contentHtml'),
+      modeRichBtn: document.getElementById('modeRichBtn'),
+      modeMdBtn: document.getElementById('modeMdBtn'),
+      mdTools: document.getElementById('mdTools'),
+      rtTools: document.getElementById('rtTools'),
+      modeHint: document.getElementById('modeHint'),
     };
 
-    const STORAGE_KEY = 'wp-post-form:draft:v1';
+    const STORAGE_KEY = 'wp-post-form:draft:v2';
     const THEME_KEY = 'wp-post-form:theme:v1';
     let saveTimer = null;
 
@@ -342,13 +438,21 @@ app.get('/', requireAccessToken, (req, res) => {
       els.saveStatus.textContent = text;
     }
 
-    function renderPreview(md) {
+    function renderPreviewFromHtml(html) {
+      els.preview.innerHTML = html || '';
+    }
+
+    function mdToHtml(md) {
       const m = window.marked;
-      if (!m || typeof m.parse !== 'function') {
-        els.preview.textContent = md || '';
-        return;
-      }
-      els.preview.innerHTML = m.parse(md || '');
+      if (!m || typeof m.parse !== 'function') return (md || '').replaceAll('<', '&lt;');
+      return m.parse(md || '');
+    }
+
+    let mode = 'rich'; // 'rich' | 'markdown'
+    let editor = null;
+
+    function getRichHtml() {
+      try { return editor ? editor.getHTML() : ''; } catch { return ''; }
     }
 
     function scheduleSave() {
@@ -359,7 +463,9 @@ app.get('/', requireAccessToken, (req, res) => {
           category: els.category.value,
           status: els.status.value,
           tags: els.tags.value,
-          body: els.bodyArea.value,
+          mode,
+          markdown: els.bodyArea.value,
+          html: getRichHtml(),
           savedAt: Date.now()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -383,22 +489,232 @@ app.get('/', requireAccessToken, (req, res) => {
       el.focus();
     }
 
-    const initial = loadDraft();
+    function wrapSelection({ before = '', after = '', placeholder = '' } = {}) {
+      const el = els.bodyArea;
+      const start = el.selectionStart ?? 0;
+      const end = el.selectionEnd ?? 0;
+      const selected = el.value.slice(start, end);
+      const inner = selected || placeholder;
+      const next = before + inner + after;
+      el.setRangeText(next, start, end, 'end');
+      el.focus();
 
+      // If nothing was selected, select the placeholder text so it's easy to overwrite.
+      if (!selected && placeholder) {
+        const cursor = start + before.length;
+        el.setSelectionRange(cursor, cursor + placeholder.length);
+      }
+    }
+
+    function prefixLines(prefix) {
+      const el = els.bodyArea;
+      const start = el.selectionStart ?? 0;
+      const end = el.selectionEnd ?? 0;
+
+      // Expand to full lines
+      const value = el.value;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', end);
+      if (lineEnd === -1) lineEnd = value.length;
+
+      const block = value.slice(lineStart, lineEnd);
+      const out = block
+        .split(/\n/)
+        .map(l => (l.trim().length ? (l.startsWith(prefix) ? l : prefix + l) : l))
+        .join('\n');
+
+      el.setRangeText(out, lineStart, lineEnd, 'end');
+      el.focus();
+    }
+
+    function makeList(kind) {
+      // kind: 'ul' | 'ol'
+      const el = els.bodyArea;
+      const start = el.selectionStart ?? 0;
+      const end = el.selectionEnd ?? 0;
+      const value = el.value;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', end);
+      if (lineEnd === -1) lineEnd = value.length;
+      const block = value.slice(lineStart, lineEnd);
+      const lines = block.split(/\n/);
+
+      const out = lines.map((l, idx) => {
+        if (!l.trim()) return l;
+        if (kind === 'ul') {
+          return l.startsWith('- ') || l.startsWith('* ') ? l : ('- ' + l);
+        }
+        // ol
+        return /^\d+\.\s/.test(l) ? l : ((idx + 1) + '. ' + l);
+      }).join('\n');
+
+      el.setRangeText(out, lineStart, lineEnd, 'end');
+      el.focus();
+    }
+
+    function runCmd(cmd) {
+      switch (cmd) {
+        case 'bold': return wrapSelection({ before: '**', after: '**', placeholder: 'bold text' });
+        case 'italic': return wrapSelection({ before: '*', after: '*', placeholder: 'italic text' });
+        case 'strike': return wrapSelection({ before: '~~', after: '~~', placeholder: 'struck text' });
+        case 'h2': return prefixLines('## ');
+        case 'h3': return prefixLines('### ');
+        case 'quote': return prefixLines('> ');
+        case 'ul': return makeList('ul');
+        case 'ol': return makeList('ol');
+        case 'code': return wrapSelection({ before: '\`', after: '\`', placeholder: 'code' });
+        case 'codeblock':
+          return wrapSelection({ before: '\n\`\`\`\n', after: '\n\`\`\`\n', placeholder: 'code here' });
+        case 'link': {
+          const url = prompt('Link URL:');
+          if (!url) return;
+          return wrapSelection({ before: '[', after: '](' + url + ')', placeholder: 'link text' });
+        }
+        default:
+          return;
+      }
+    }
+
+    function setMode(next) {
+      mode = next;
+      const isRich = mode === 'rich';
+
+      els.modeRichBtn.classList.toggle('active', isRich);
+      els.modeMdBtn.classList.toggle('active', !isRich);
+      els.modeRichBtn.setAttribute('aria-selected', String(isRich));
+      els.modeMdBtn.setAttribute('aria-selected', String(!isRich));
+
+      els.rtEditorEl.style.display = isRich ? 'block' : 'none';
+      els.bodyArea.style.display = isRich ? 'none' : 'block';
+      els.rtTools.style.display = isRich ? 'inline-flex' : 'none';
+      els.mdTools.style.display = isRich ? 'none' : 'inline-flex';
+      els.modeHint.textContent = isRich ? 'Rich' : 'Markdown';
+
+      if (isRich) {
+        renderPreviewFromHtml(getRichHtml());
+      } else {
+        renderPreviewFromHtml(mdToHtml(els.bodyArea.value));
+      }
+      scheduleSave();
+    }
+
+    function mdFromHtml(html) {
+      const TurndownService = window.TurndownService;
+      if (!TurndownService) return '';
+      const td = new TurndownService({ codeBlockStyle: 'fenced', emDelimiter: '*', strongDelimiter: '**' });
+      return td.turndown(html || '');
+    }
+
+    // Init TipTap
+    editor = new Editor({
+      element: els.rtEditorEl,
+      extensions: [
+        StarterKit,
+        Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+        Image.configure({ inline: false }),
+      ],
+      content: '<p></p>',
+      onUpdate: () => {
+        if (mode !== 'rich') return;
+        renderPreviewFromHtml(getRichHtml());
+        scheduleSave();
+      }
+    });
+
+    function runRtCmd(cmd) {
+      const chain = editor.chain().focus();
+      switch (cmd) {
+        case 'bold': chain.toggleBold().run(); break;
+        case 'italic': chain.toggleItalic().run(); break;
+        case 'h2': chain.toggleHeading({ level: 2 }).run(); break;
+        case 'h3': chain.toggleHeading({ level: 3 }).run(); break;
+        case 'ul': chain.toggleBulletList().run(); break;
+        case 'ol': chain.toggleOrderedList().run(); break;
+        case 'link': {
+          const prev = editor.getAttributes('link').href || '';
+          const url = prompt('Link URL:', prev);
+          if (url === null) break;
+          if (!url) { chain.unsetLink().run(); break; }
+          chain.extendMarkRange('link').setLink({ href: url }).run();
+          break;
+        }
+        default: break;
+      }
+      renderPreviewFromHtml(getRichHtml());
+      scheduleSave();
+    }
+
+    document.querySelectorAll('[data-rtcmd]').forEach((btn) => {
+      btn.addEventListener('click', () => runRtCmd(btn.dataset.rtcmd));
+    });
+
+    // Load draft
+    const initial = loadDraft();
     if (initial) {
       els.title.value = initial.title || '';
       els.category.value = initial.category || els.category.value;
       els.status.value = initial.status || els.status.value;
       els.tags.value = initial.tags || '';
-      els.bodyArea.value = initial.body || '';
+
+      if (initial.markdown && typeof initial.markdown === 'string') {
+        els.bodyArea.value = initial.markdown;
+      }
+      if (initial.html && typeof initial.html === 'string') {
+        editor.commands.setContent(initial.html, false);
+      } else if (els.bodyArea.value) {
+        editor.commands.setContent(mdToHtml(els.bodyArea.value), false);
+      }
+
+      mode = initial.mode === 'markdown' ? 'markdown' : 'rich';
       setSaveStatus('Restored draft');
     }
 
-    renderPreview(els.bodyArea.value);
+    // Mode buttons
+    els.modeRichBtn.addEventListener('click', () => {
+      // If coming from markdown, convert to HTML and load into rich editor.
+      if (mode === 'markdown') {
+        editor.commands.setContent(mdToHtml(els.bodyArea.value), false);
+      }
+      setMode('rich');
+    });
+    els.modeMdBtn.addEventListener('click', () => {
+      // If coming from rich, convert to markdown for the textarea.
+      if (mode === 'rich') {
+        els.bodyArea.value = mdFromHtml(getRichHtml());
+      }
+      setMode('markdown');
+    });
 
-    // Live preview + autosave
+    // Default mode if nothing saved
+    els.modeRichBtn.classList.add('active');
+    setMode(mode);
+
+    // Markdown formatting toolbar
+    document.querySelectorAll('[data-cmd]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (mode !== 'markdown') return;
+        runCmd(btn.dataset.cmd);
+        renderPreviewFromHtml(mdToHtml(els.bodyArea.value));
+        scheduleSave();
+      });
+    });
+
+    // Keyboard shortcuts (markdown)
+    els.bodyArea.addEventListener('keydown', (e) => {
+      if (mode !== 'markdown') return;
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod) return;
+
+      const k = String(e.key || '').toLowerCase();
+      if (k === 'b') { e.preventDefault(); runCmd('bold'); renderPreviewFromHtml(mdToHtml(els.bodyArea.value)); scheduleSave(); }
+      if (k === 'i') { e.preventDefault(); runCmd('italic'); renderPreviewFromHtml(mdToHtml(els.bodyArea.value)); scheduleSave(); }
+      if (k === 'k') { e.preventDefault(); runCmd('link'); renderPreviewFromHtml(mdToHtml(els.bodyArea.value)); scheduleSave(); }
+    });
+
+    // Live preview + autosave (markdown)
     els.bodyArea.addEventListener('input', () => {
-      renderPreview(els.bodyArea.value);
+      if (mode !== 'markdown') return;
+      renderPreviewFromHtml(mdToHtml(els.bodyArea.value));
       scheduleSave();
     });
 
@@ -417,8 +733,18 @@ app.get('/', requireAccessToken, (req, res) => {
       els.tags.value = '';
       els.status.value = 'draft';
       els.bodyArea.value = '';
-      renderPreview('');
+      editor.commands.setContent('<p></p>', false);
+      renderPreviewFromHtml('');
       setSaveStatus('Cleared');
+    });
+
+    // Ensure we always submit HTML to the server
+    els.form.addEventListener('submit', () => {
+      if (mode === 'rich') {
+        els.contentHtml.value = getRichHtml();
+      } else {
+        els.contentHtml.value = mdToHtml(els.bodyArea.value);
+      }
     });
 
     async function uploadFile(file) {
@@ -435,8 +761,13 @@ app.get('/', requireAccessToken, (req, res) => {
       setSaveStatus('Uploading image…');
       try {
         const { url } = await uploadFile(file);
-        insertAtCursor("\n\n![](" + url + ")\n\n");
-        renderPreview(els.bodyArea.value);
+        if (mode === 'rich') {
+          editor.chain().focus().setImage({ src: url }).run();
+          renderPreviewFromHtml(getRichHtml());
+        } else {
+          insertAtCursor("\n\n![](" + url + ")\n\n");
+          renderPreviewFromHtml(mdToHtml(els.bodyArea.value));
+        }
         scheduleSave();
         setSaveStatus('Image inserted');
       } catch (e) {
@@ -459,7 +790,7 @@ app.get('/', requireAccessToken, (req, res) => {
     });
 
     // Initial autosave marker if we loaded something
-    if (els.bodyArea.value || (initial && (initial.title || initial.tags))) {
+    if (getRichHtml() || els.bodyArea.value || (initial && (initial.title || initial.tags))) {
       scheduleSave();
     }
 
@@ -505,15 +836,16 @@ app.post('/create', requireAccessToken, async (req, res) => {
 
     const title = (req.body.title || '').trim();
     const bodyMd = (req.body.body || '').trim();
+    const contentHtml = (req.body.contentHtml || '').trim();
     const categoryKey = (req.body.category || '').trim();
     const status = (req.body.status || 'draft').trim();
     const tagsRaw = (req.body.tags || '').trim();
 
-    if (!title || !bodyMd) return res.status(400).send('Missing title/body');
+    if (!title || (!contentHtml && !bodyMd)) return res.status(400).send('Missing title/body');
     if (!CATEGORY_MAP[categoryKey]) return res.status(400).send('Invalid category');
     if (!['draft', 'publish'].includes(status)) return res.status(400).send('Invalid status');
 
-    const html = marked.parse(bodyMd);
+    const html = contentHtml || marked.parse(bodyMd);
     const categoryId = CATEGORY_MAP[categoryKey].id;
 
     // Resolve tag IDs (create missing tags)
