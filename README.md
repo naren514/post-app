@@ -4,8 +4,9 @@ A tiny local web app for creating WordPress posts (draft or publish) via the Wor
 
 - **Fast:** one page, minimal UI
 - **Safe by default:** binds to `127.0.0.1` unless you change it
-- **Markdown → HTML:** write Markdown, preview live, publish to WordPress
-- **Image upload:** drag & drop images → uploads to WP Media → inserts `![](url)` into the body
+- **Rich text + Markdown:** TipTap WYSIWYG editor with a Markdown mode
+- **Live preview**
+- **Image upload:** drag & drop images → uploads to WP Media → inserts `<img src="...">` in rich mode (or `![](url)` in Markdown mode)
 
 ## Screenshot
 
@@ -14,9 +15,9 @@ A tiny local web app for creating WordPress posts (draft or publish) via the Wor
 ## How it works
 
 This is a small Express server that:
-- serves a simple HTML form UI
+- serves a single-page UI
 - uploads images to WordPress via `POST /wp-json/wp/v2/media`
-- creates posts via `POST /wp-json/wp/v2/posts`
+- creates posts via `POST /wp-json/wp/v2/posts` (submits HTML content from the editor)
 
 ## Quick start
 

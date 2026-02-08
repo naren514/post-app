@@ -2,6 +2,11 @@
 
 Local web form to create WordPress posts (draft or publish) via the WP REST API.
 
+Features:
+- **Rich text (TipTap) + Markdown** mode toggle
+- Live preview
+- Drag & drop image upload (rich mode inserts `<img src="...">`; markdown inserts `![](url)`)
+
 ## UI
 
 ![App UI](assets/app-ui-wysiwyg.jpg)
