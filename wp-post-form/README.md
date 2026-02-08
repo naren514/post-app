@@ -2,6 +2,10 @@
 
 Local web form to create WordPress posts (draft or publish) via the WP REST API.
 
+## UI
+
+![App UI](assets/app-ui-wysiwyg.jpg)
+
 ## Security model
 
 - The server binds to **127.0.0.1** by default (local-only).
