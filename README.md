@@ -9,7 +9,7 @@ A tiny local web app for creating WordPress posts (draft or publish) via the Wor
 
 ## Screenshot
 
-![post-app UI](wp-post-form/assets/app-ui-1600.jpg)
+![post-app UI](wp-post-form/assets/app-ui-wysiwyg-1600.jpg)
 
 ## How it works
 
